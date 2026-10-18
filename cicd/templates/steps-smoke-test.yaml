@@ -1,0 +1,11 @@
+steps:
+# quick checks against the deployed stack
+- script: |
+    set -euo pipefail
+    check() { # name, expected http code, actual http code
+      if [ "$3" = "$2" ]; then echo "PASS $1 ($3)"; else echo "##vso[task.logissue type=error]FAIL $1: expected $2, got $3"; exit 1; fi
+    }
+    check "api answers" 200 $(curl -s -o /dev/null -w '%{http_code}' "$(apiUrl)")
+    check "api greets by name" 200 $(curl -s -o /dev/null -w '%{http_code}' "$(apiUrl)?name=Ada")
+    curl -s "$(apiUrl)?name=Ada" | grep -q 'Hello, Ada!' && echo "PASS greeting text" || { echo "##vso[task.logissue type=error]FAIL greeting text"; exit 1; }
+  displayName: 'Smoke test deployed stack'

@@ -1,0 +1,53 @@
+name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)-$(environment)
+trigger:
+  branches:
+    include:
+    - '*'
+    exclude:
+    - main
+  paths:
+    include:
+    - cicd
+    - deploy
+    - src
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+resources:
+- repo: self
+
+# the branch decides the environment: main -> prod, staging -> staging, any other branch -> dev
+# main has no trigger: prod is deployed by running this pipeline on main by hand
+variables:
+- template: variables/vars-global.yaml
+- ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+  - template: variables/vars-prod.yaml
+- ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/staging') }}:
+  - template: variables/vars-staging.yaml
+- ${{ else }}:
+  - template: variables/vars-dev.yaml
+
+stages:
+- stage: Deploy_${{ variables.environment }}
+  displayName: Deploy ${{ variables.environment }}
+  jobs:
+  - job: Unit_Test
+    displayName: Unit tests
+    steps:
+    - template: templates/steps-unit-test.yaml
+
+  - job: Deploy_Terraform
+    displayName: Deploy terraform infrastructure
+    dependsOn: Unit_Test
+    steps:
+    - template: templates/steps-deploy-tf.yaml
+
+  - job: Smoke_Test
+    displayName: Smoke test
+    dependsOn: Deploy_Terraform
+    variables:
+    - name: apiUrl
+      value: $[ dependencies.Deploy_Terraform.outputs['tfOutputs.apiUrl'] ]
+    steps:
+    - template: templates/steps-smoke-test.yaml

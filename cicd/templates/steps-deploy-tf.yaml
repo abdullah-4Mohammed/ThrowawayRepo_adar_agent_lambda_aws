@@ -1,0 +1,64 @@
+steps:
+- task: JasonBJohnson.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-installer.TerraformInstaller@1
+  displayName: "Install Terraform"
+  inputs:
+    terraformVersion: '1.11.4' # 1.11+ supports native s3 state locking (use_lockfile)
+
+- task: replacetokens@6 
+  inputs:
+    root: '$(System.DefaultWorkingDirectory)/deploy/terraform' 
+    sources : '**/*.tfvars' 
+    addBOM: true 
+    tokenPattern: 'doubleunderscores'
+    logLevel: 'warn'
+    ifNoFilesFound: 'warn' 
+    telemetryOptout: true 
+
+- task: TerraformCLI@2 
+  displayName: "Terraform init"
+  inputs:
+    backendType: 'aws'
+    command: 'init'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/deploy/terraform'
+    backendServiceAws: $(awsConnection)
+    backendAwsRegion: $(region)
+    backendAwsBucket: '$(backendBucket)'
+    backendAwsKey: 'tf/$(environment).tfstate'
+    # lock the state file in s3 so two runs can never write it at the same time
+    commandOptions: '-backend-config=use_lockfile=true'
+    allowTelemetryCollection: true
+
+- task: TerraformCLI@2 
+  displayName: 'Terraform plan'
+  inputs:
+    command: 'plan'
+    providerServiceAws: $(awsConnection)
+    workingDirectory: '$(System.DefaultWorkingDirectory)/deploy/terraform'
+    commandOptions: '-var-file=vars.tfvars --out=$(environment).tfplan -lock-timeout=15m' # wait if another run holds the lock
+    publishPlanResults: 'plan'
+    providerAwsRegion: $(region)
+    allowTelemetryCollection: true
+
+- task: TerraformCLI@2
+  displayName: 'Terraform apply'
+  inputs:
+    command: 'apply'
+    providerServiceAws: $(awsConnection)
+    workingDirectory: '$(System.DefaultWorkingDirectory)/deploy/terraform'
+    commandOptions: '-auto-approve -lock-timeout=15m $(environment).tfplan'
+    allowTelemetryCollection: true
+    providerAwsRegion: $(region)
+
+# read terraform outputs and pass them to the smoke test job
+- task: AWSShellScript@1
+  name: tfOutputs
+  displayName: 'Terraform outputs'
+  inputs:
+    awsCredentials: '$(awsConnection)'
+    regionName: '$(region)'
+    scriptType: 'inline'
+    inlineScript: |
+      set -euo pipefail
+      cd $(System.DefaultWorkingDirectory)/deploy/terraform
+      terraform output
+      echo "##vso[task.setvariable variable=apiUrl;isOutput=true]$(terraform output -raw api_url)"

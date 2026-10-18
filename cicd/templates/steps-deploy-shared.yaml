@@ -1,0 +1,12 @@
+steps:
+- task: AWSCLI@1
+  displayName: Create a bucket for backend
+  inputs:
+    awsCredentials: '$(awsConnection)'
+    regionName: '$(region)'
+    awsCommand: 's3api'
+    awsSubCommand: 'create-bucket'
+    awsArguments: >-
+      --bucket "$(backendBucket)"
+      --region $(region)
+      --create-bucket-configuration "{\"LocationConstraint\":\"$(region)\"}"

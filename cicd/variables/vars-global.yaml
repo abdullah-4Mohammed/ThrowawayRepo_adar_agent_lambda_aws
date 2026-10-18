@@ -1,0 +1,7 @@
+variables:
+  region: eu-west-2
+  awsConnection: "AzToAWS"
+  backendBucketName: "backend-tfstate"
+  regionShortName: euw2
+  serviceName: throwaway
+  backendBucket: "$(serviceName)-$(backendBucketName)-$(regionShortName)"
