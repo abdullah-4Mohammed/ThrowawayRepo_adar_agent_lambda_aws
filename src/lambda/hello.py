@@ -5,7 +5,7 @@ import json
 def greet(name):
     # a missing or empty name falls back to "world"
     name = (name or "").strip() or "world"
-    return f"Hello, {name}"
+    return f"Hello, {name}!"
 
 
 def handler(event, context):
