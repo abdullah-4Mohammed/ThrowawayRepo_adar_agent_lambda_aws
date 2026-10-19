@@ -42,7 +42,7 @@ resource "aws_iam_role_policy_attachment" "hello" {
 resource "aws_lambda_function" "hello" {
   function_name    = "${local.resourceName}-hello"
   role             = aws_iam_role.hello.arn
-  runtime          = "python3.22"
+  runtime          = "python3.12"
   handler          = "hello.handler"
   filename         = data.archive_file.hello.output_path
   source_code_hash = data.archive_file.hello.output_base64sha256
